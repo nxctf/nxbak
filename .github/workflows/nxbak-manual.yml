@@ -58,6 +58,11 @@ jobs:
       - name: Install NXBAK
         run: pip install .
 
+      - name: Configure Git identity
+        run: |
+          git config user.name "NXBAK Bot"
+          git config user.email "nxbak-bot@users.noreply.github.com"
+
       - name: Run doctor
         env:
           NXBAK_SUPABASE_DB_URL: ${{ secrets.NXBAK_SUPABASE_DB_URL }}
