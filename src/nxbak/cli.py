@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
@@ -21,6 +22,7 @@ console = Console()
 
 def context():
     repo_root = find_repo_root()
+    load_dotenv(repo_root / ".env", override=False)
     config = load_config(repo_root)
     remote_url(repo_root, config.remote)
     return repo_root, config
@@ -145,17 +147,20 @@ def status():
 
 
 @app.command()
-def doctor():
+def doctor(remote_check: bool = typer.Option(False, "--remote-check", help="Also run git fetch against the configured remote")):
     failed = False
     try:
         repo_root, config = context()
         remote_url(repo_root, config.remote)
-        fetch(repo_root, config.remote)
         checks = [
             ("config", True),
+            (f"remote {config.remote}", True),
             (config.source.database_url_env, is_env_set(config.source.database_url_env)),
             (config.backup.encryption_key_env, (not config.backup.encryption) or is_env_set(config.backup.encryption_key_env)),
         ]
+        if remote_check:
+            fetch(repo_root, config.remote)
+            checks.append((f"git fetch {config.remote}", True))
     except Exception as exc:
         handle_error(exc)
     for exe in ("git", "pg_dump", "pg_restore"):

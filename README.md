@@ -19,7 +19,27 @@ The `main` branch stays application-only: source code, README, config examples, 
 - A cloned Git repository with remote `origin`
 
 ## Installation
+### Windows
+```bash
+pg_dump --version
+pg_restore --version
+scoop install postgresql
+```
 
+```bash
+python -m pip install --user pipx
+python -m pipx ensurepath
+
+pipx install . --force
+python -m pipx install . --force
+
+nxbak --help
+nxbak status
+
+nxbak backup
+```
+
+### Linux
 ```bash
 git clone https://github.com/<owner>/<repo>.git
 cd <repo>
@@ -46,18 +66,29 @@ pip install -e ".[dev]"
 ## Quick Start
 
 ```bash
+sudo apt update
+sudo apt install postgresql-client
+set -a
+source .env
+set +a
+
+nxbak status
+```
+
+```bash
 cp .nxbak.example.yml .nxbak.yml
 
 export NXBAK_SUPABASE_DB_URL="postgresql://..."
 export NXBAK_ENCRYPTION_KEY="long-random-secret"
 
-nxbak doctor
-nxbak backup
-nxbak list
-nxbak restore --dry-run
+nxbak doctor # check configuration and environment
+nxbak backup # creates a backup and commits to snapshots/manual
+nxbak list # shows backup history from all snapshot branches
+nxbak restore --dry-run # simulates restore without modifying the database
 ```
 
 Never store secrets in `.nxbak.yml`. Use environment variables.
+NXBAK automatically loads `.env` from the repository root when present, without overriding variables already set in your shell or CI.
 
 ## Configuration
 
@@ -156,7 +187,10 @@ Health checks:
 ```bash
 nxbak status
 nxbak doctor
+nxbak doctor --remote-check
 ```
+
+`nxbak doctor` checks local config, environment variables, and required tools. Use `--remote-check` when you also want to verify that Git can fetch from `origin`.
 
 ## GitHub Actions
 
