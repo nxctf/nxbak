@@ -8,6 +8,8 @@ import yaml
 
 from .exceptions import ConfigError
 
+DEFAULT_AUTH_TABLES = ("auth.users", "auth.identities", "auth.audit_log_entries")
+
 
 @dataclass(frozen=True)
 class Branches:
@@ -27,12 +29,16 @@ class BackupConfig:
     compression: str = "gzip"
     encryption: bool = True
     encryption_key_env: str = "NXBAK_ENCRYPTION_KEY"
+    schemas: tuple[str, ...] = ("public",)
+    include_auth_data: bool = False
+    auth_tables: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class RestoreConfig:
-    verify_checksum: bool = True
-    require_confirmation: bool = True
+    schemas: tuple[str, ...] = ("public",)
+    include_auth_data: bool = False
+    auth_tables: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -44,8 +50,8 @@ class Config:
     backup: BackupConfig
     restore: RestoreConfig
 
-    def branch_for(self, daily: bool = False, monthly: bool = False) -> str:
-        return self.branch_for_type(self.type_for(daily=daily, monthly=monthly))
+    def branch_for(self, daily: bool = False, monthly: bool = False, manual: bool = False) -> str:
+        return self.branch_for_type(self.type_for(daily=daily, monthly=monthly, manual=manual))
 
     def branch_for_type(self, snapshot_type: str) -> str:
         if snapshot_type == "manual":
@@ -56,9 +62,12 @@ class Config:
             return self.branches.monthly
         raise ConfigError(f"Unknown snapshot type '{snapshot_type}'.")
 
-    def type_for(self, daily: bool = False, monthly: bool = False) -> str:
-        if daily and monthly:
-            raise ConfigError("Choose only one snapshot type: --daily or --monthly.")
+    def type_for(self, daily: bool = False, monthly: bool = False, manual: bool = False) -> str:
+        selected = [daily, monthly, manual].count(True)
+        if selected > 1:
+            raise ConfigError("Choose only one snapshot type: --manual, --daily, or --monthly.")
+        if manual:
+            return "manual"
         if monthly:
             return "monthly"
         if daily:
@@ -100,6 +109,10 @@ def load_config(repo_root: Path) -> Config:
         raise ConfigError("Only backup.compression='gzip' is supported.")
     branches = data.get("branches") or {}
     restore = data.get("restore") or {}
+    backup_include_auth = bool(backup.get("include_auth_data", False))
+    restore_include_auth = bool(restore.get("include_auth_data", backup_include_auth))
+    backup_auth_tables = tuple(backup.get("auth_tables", DEFAULT_AUTH_TABLES if backup_include_auth else []))
+    restore_auth_tables = tuple(restore.get("auth_tables", backup_auth_tables if restore_include_auth else []))
     return Config(
         version=1,
         remote=data.get("remote", "origin"),
@@ -113,9 +126,13 @@ def load_config(repo_root: Path) -> Config:
             compression="gzip",
             encryption=bool(backup.get("encryption", True)),
             encryption_key_env=backup.get("encryption_key_env", "NXBAK_ENCRYPTION_KEY"),
+            schemas=tuple(backup.get("schemas", ["public"])),
+            include_auth_data=backup_include_auth,
+            auth_tables=backup_auth_tables,
         ),
         restore=RestoreConfig(
-            verify_checksum=bool(restore.get("verify_checksum", True)),
-            require_confirmation=bool(restore.get("require_confirmation", True)),
+            schemas=tuple(restore.get("schemas", backup.get("schemas", ["public"]))),
+            include_auth_data=restore_include_auth,
+            auth_tables=restore_auth_tables,
         ),
     )

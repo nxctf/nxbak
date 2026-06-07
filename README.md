@@ -109,11 +109,29 @@ backup:
   compression: gzip
   encryption: true
   encryption_key_env: NXBAK_ENCRYPTION_KEY
+  schemas:
+    - public
+  include_auth_data: false
+  auth_tables:
+    - auth.users
+    - auth.identities
+    - auth.audit_log_entries
 
 restore:
   verify_checksum: true
   require_confirmation: true
+  schemas:
+    - public
+  include_auth_data: false
+  auth_tables:
+    - auth.users
+    - auth.identities
+    - auth.audit_log_entries
 ```
+
+By default NXBAK backs up and restores only the `public` schema. Supabase manages internal schemas such as `auth`, `storage`, `extensions`, `vault`, `graphql`, and `realtime`; restoring those into a hosted Supabase project can produce permission and grant errors because the `postgres` role is not a full superuser.
+
+Set `include_auth_data: true` when you also need auth user records in the same encrypted snapshot. NXBAK includes selected data tables (`auth.users`, `auth.identities`, and `auth.audit_log_entries`) but avoids sessions, refresh tokens, grants, event triggers, and internal Supabase privileges.
 
 ## Commands
 
@@ -121,6 +139,7 @@ Manual backup:
 
 ```bash
 nxbak backup
+nxbak backup --quiet
 ```
 
 Daily backup:
@@ -139,12 +158,17 @@ List snapshots:
 
 ```bash
 nxbak list
+nxbak list --manual
 nxbak list --daily
 nxbak list --monthly
 nxbak list --limit 20
+nxbak list --show-init
 ```
 
 Without flags, `nxbak list` shows history from all snapshot branches.
+Rows are sorted by commit date, newest first, across manual, daily, and monthly snapshots. Dates are displayed as `HH:MM:SS DD-MM-YYYY`.
+NXBAK hides internal branch initialization commits from this list, so the table only shows real backup snapshots.
+Branch initialization commits are hidden by default.
 
 Restore latest:
 
@@ -166,6 +190,12 @@ Dry run:
 
 ```bash
 nxbak restore --dry-run
+```
+
+Use force mode only for legacy/full Supabase dumps where hosted Supabase rejects internal managed objects but you still want `pg_restore` to continue processing restorable data:
+
+```bash
+nxbak restore --commit a81f92c --force
 ```
 
 Inspect a snapshot manifest:
@@ -199,7 +229,7 @@ Set repository secrets:
 - `NXBAK_SUPABASE_DB_URL`
 - `NXBAK_ENCRYPTION_KEY`
 
-The daily workflow runs at 02:00 UTC and can also be triggered manually. The monthly workflow runs at 03:00 UTC on the first day of each month. Snapshot workflows do not run on push, so updates to `main` do not automatically create backup commits.
+The manual workflow is click-only through GitHub Actions and writes to `snapshots/manual`. The daily workflow runs at 02:00 UTC and can also be triggered manually. The monthly workflow runs at 03:00 UTC on the first day of each month. Snapshot workflows do not run on push, so updates to `main` do not automatically create backup commits.
 
 ## Security
 

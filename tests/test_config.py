@@ -18,9 +18,14 @@ source:
 backup:
   compression: gzip
   encryption: false
+  schemas:
+    - public
+    - private
+  include_auth_data: true
 restore:
-  verify_checksum: true
-  require_confirmation: false
+  schemas:
+    - public
+  include_auth_data: true
 """,
         encoding="utf-8",
     )
@@ -28,5 +33,12 @@ restore:
     assert config.source.database_url_env == "DB_URL"
     assert config.branch_for(False) == "snapshots/manual"
     assert config.branch_for(True) == "snapshots/daily"
+    assert config.branch_for(manual=True) == "snapshots/manual"
     assert config.branch_for(monthly=True) == "snapshots/monthly"
     assert config.snapshot_types() == ["manual", "daily", "monthly"]
+    assert config.backup.schemas == ("public", "private")
+    assert config.restore.schemas == ("public",)
+    assert config.backup.include_auth_data is True
+    assert config.restore.include_auth_data is True
+    assert config.backup.auth_tables == ("auth.users", "auth.identities", "auth.audit_log_entries")
+    assert config.restore.auth_tables == ("auth.users", "auth.identities", "auth.audit_log_entries")

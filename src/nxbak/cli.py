@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 import typer
@@ -11,13 +12,20 @@ from rich.table import Table
 
 from .backup import create_backup
 from .config import load_config
-from .exceptions import NxbakError
 from .git import active_branch, fetch, find_repo_root, log, remote_url
 from .restore import decrypt_snapshot, load_snapshot, restore_snapshot
 from .utils import is_env_set, mask_secret, require_executable
 
 app = typer.Typer(no_args_is_help=True, help="NXBAK Git-backed Supabase backup CLI")
 console = Console()
+
+
+def parse_git_date(value: str) -> datetime:
+    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S %z")
+
+
+def format_git_date(value: str) -> str:
+    return parse_git_date(value).strftime("%H:%M:%S %d-%m-%Y")
 
 
 def context():
@@ -38,12 +46,15 @@ def handle_error(exc: Exception) -> None:
 
 @app.command()
 def backup(
+    manual: bool = typer.Option(False, "--manual", help="Write to snapshots/manual"),
     daily: bool = typer.Option(False, "--daily", help="Write to snapshots/daily"),
     monthly: bool = typer.Option(False, "--monthly", help="Write to snapshots/monthly"),
+    quiet: bool = typer.Option(False, "--quiet", help="Only print the final result"),
 ):
     try:
         repo_root, config = context()
-        result = create_backup(repo_root, config, snapshot_type=config.type_for(daily=daily, monthly=monthly))
+        progress = None if quiet else lambda message: console.print(f"[cyan]-->[/cyan] {message}")
+        result = create_backup(repo_root, config, snapshot_type=config.type_for(manual=manual, daily=daily, monthly=monthly), progress=progress)
     except Exception as exc:
         handle_error(exc)
     console.print("\n[bold green]NXBAK backup completed[/bold green]\n")
@@ -53,23 +64,29 @@ def backup(
 
 @app.command("list")
 def list_snapshots(
+    manual: bool = typer.Option(False, "--manual", help="Read snapshots/manual"),
     daily: bool = typer.Option(False, "--daily", help="Read snapshots/daily"),
     monthly: bool = typer.Option(False, "--monthly", help="Read snapshots/monthly"),
     limit: int = typer.Option(10, "--limit", min=1),
+    show_init: bool = typer.Option(False, "--show-init", help="Include snapshot branch initialization commits"),
 ):
     try:
         repo_root, config = context()
-        if daily or monthly:
-            kinds = [config.type_for(daily=daily, monthly=monthly)]
+        if manual or daily or monthly:
+            kinds = [config.type_for(manual=manual, daily=daily, monthly=monthly)]
         else:
             kinds = config.snapshot_types()
         rows = []
         for kind in kinds:
             try:
                 for row in log(repo_root, config.remote, config.branch_for_type(kind), limit):
+                    if not show_init and not row["message"].startswith("NXBAK "):
+                        continue
                     rows.append({"type": kind, "branch": config.branch_for_type(kind), **row})
             except Exception:
                 continue
+        rows.sort(key=lambda row: parse_git_date(row["created"]), reverse=True)
+        rows = rows[:limit]
     except Exception as exc:
         handle_error(exc)
     table = Table()
@@ -79,37 +96,29 @@ def list_snapshots(
     table.add_column("CREATED")
     table.add_column("MESSAGE")
     for row in rows:
-        table.add_row(row["type"], row["branch"], row["commit"], row["created"], row["message"])
+        table.add_row(
+            row["type"],
+            row["branch"],
+            row["commit"],
+            format_git_date(row["created"]),
+            row["message"],
+        )
     console.print(table)
 
 
 @app.command()
 def restore(
+    manual: bool = typer.Option(False, "--manual", help="Restore from snapshots/manual"),
     daily: bool = typer.Option(False, "--daily", help="Restore from snapshots/daily"),
     monthly: bool = typer.Option(False, "--monthly", help="Restore from snapshots/monthly"),
     commit: str | None = typer.Option(None, "--commit", help="Restore a specific snapshot commit"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate restore without changing database"),
-    yes: bool = typer.Option(False, "--yes", help="Skip interactive confirmation"),
 ):
     try:
         repo_root, config = context()
-        snapshot_type = config.type_for(daily=daily, monthly=monthly)
-        if not dry_run and not yes and config.restore.require_confirmation:
-            selected_commit, manifest, _, tmp_ctx = load_snapshot(repo_root, config, snapshot_type=snapshot_type, commit=commit)
-            try:
-                console.print("You are about to restore a database.\n")
-                console.print(f"Type: {manifest['backup_type']}")
-                console.print(f"Commit: {selected_commit[:7]}")
-                console.print(f"Created: {manifest['created_at']}")
-                console.print(f"Target: {config.source.database_url_env}")
-                typed = typer.prompt("Type RESTORE to continue")
-                if typed != "RESTORE":
-                    raise NxbakError("Restore cancelled.")
-            finally:
-                tmp_ctx.cleanup()
-        elif yes and not dry_run:
-            console.print("[yellow]Warning: --yes skips restore confirmation.[/yellow]")
-        result = restore_snapshot(repo_root, config, snapshot_type=snapshot_type, commit=commit, dry_run=dry_run)
+        snapshot_type = config.type_for(manual=manual, daily=daily, monthly=monthly)
+        progress = lambda message: console.print(f"[cyan]-->[/cyan] {message}")
+        result = restore_snapshot(repo_root, config, snapshot_type=snapshot_type, commit=commit, dry_run=dry_run, progress=progress)
     except Exception as exc:
         handle_error(exc)
     console.print("\n[bold green]NXBAK restore check completed[/bold green]" if dry_run else "\n[bold green]NXBAK restore completed[/bold green]")
@@ -179,12 +188,13 @@ def doctor(remote_check: bool = typer.Option(False, "--remote-check", help="Also
 @app.command()
 def inspect(
     commit: str = typer.Option(..., "--commit", help="Snapshot commit"),
+    manual: bool = typer.Option(False, "--manual"),
     daily: bool = typer.Option(False, "--daily"),
     monthly: bool = typer.Option(False, "--monthly"),
 ):
     try:
         repo_root, config = context()
-        _, manifest, _, tmp_ctx = load_snapshot(repo_root, config, snapshot_type=config.type_for(daily=daily, monthly=monthly), commit=commit)
+        _, manifest, _, tmp_ctx = load_snapshot(repo_root, config, snapshot_type=config.type_for(manual=manual, daily=daily, monthly=monthly), commit=commit)
         tmp_ctx.cleanup()
     except Exception as exc:
         handle_error(exc)
@@ -194,13 +204,14 @@ def inspect(
 @app.command()
 def decrypt(
     commit: str = typer.Option(..., "--commit", help="Snapshot commit to decrypt"),
+    manual: bool = typer.Option(False, "--manual", help="Read snapshots/manual"),
     daily: bool = typer.Option(False, "--daily", help="Read snapshots/daily"),
     monthly: bool = typer.Option(False, "--monthly", help="Read snapshots/monthly"),
     out: Path = typer.Option(Path("nxbak-decrypted"), "--out", help="Output directory"),
 ):
     try:
         repo_root, config = context()
-        result = decrypt_snapshot(repo_root, config, snapshot_type=config.type_for(daily=daily, monthly=monthly), commit=commit, output_dir=out)
+        result = decrypt_snapshot(repo_root, config, snapshot_type=config.type_for(manual=manual, daily=daily, monthly=monthly), commit=commit, output_dir=out)
     except Exception as exc:
         handle_error(exc)
     console.print("\n[bold green]NXBAK snapshot decrypted[/bold green]\n")

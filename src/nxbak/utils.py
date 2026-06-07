@@ -8,7 +8,15 @@ from pathlib import Path
 from .exceptions import DependencyError, NxbakError
 
 
-def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+def run(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+    input_text: str | None = None,
+    timeout: int | None = None,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(
             args,
@@ -17,9 +25,13 @@ def run(args: list[str], *, cwd: Path | None = None, env: dict[str, str] | None 
             input=input_text,
             text=True,
             capture_output=True,
-            check=True,
+            check=check,
             shell=False,
+            timeout=timeout,
         )
+    except subprocess.TimeoutExpired as exc:
+        command = " ".join(args[:2])
+        raise NxbakError(f"Command timed out after {timeout} seconds: {command}") from exc
     except subprocess.CalledProcessError as exc:
         detail = exc.stderr.strip() or exc.stdout.strip() or str(exc)
         raise NxbakError(detail) from exc

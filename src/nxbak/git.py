@@ -108,6 +108,8 @@ def log(repo_root: Path, remote: str, branch: str, limit: int) -> list[dict[str,
     rows = []
     for line in out.splitlines():
         commit, created, message = line.split("\t", 2)
+        if message == "Initialize NXBAK snapshot branch":
+            continue
         rows.append({"commit": commit, "created": created, "message": message})
     return rows
 
