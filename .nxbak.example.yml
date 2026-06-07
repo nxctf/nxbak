@@ -1,0 +1,21 @@
+version: 1
+
+remote: origin
+
+branches:
+  manual: snapshots/manual
+  daily: snapshots/daily
+  monthly: snapshots/monthly
+
+source:
+  type: supabase
+  database_url_env: NXBAK_SUPABASE_DB_URL
+
+backup:
+  compression: gzip
+  encryption: true
+  encryption_key_env: NXBAK_ENCRYPTION_KEY
+
+restore:
+  verify_checksum: true
+  require_confirmation: true
