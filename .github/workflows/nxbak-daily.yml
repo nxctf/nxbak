@@ -3,7 +3,7 @@ name: NXBAK Daily Snapshot
 on:
   schedule:
     - cron: "0 2 * * *"
-  workflow_dispatch:
+  # workflow_dispatch:
 
 permissions:
   contents: write
