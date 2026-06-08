@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nxbak"
+version = "0.1.0"
+description = "Git-backed Supabase backup and restore CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+  "cryptography>=42.0.0",
+  "python-dotenv>=1.0.0",
+  "pyyaml>=6.0.0",
+  "rich>=13.7.0",
+  "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[project.scripts]
+nxbak = "nxbak.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
