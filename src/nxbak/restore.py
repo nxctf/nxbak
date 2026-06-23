@@ -85,6 +85,58 @@ def restore_snapshot(
             for restore_file in restore_files:
                 log(f"Restoring {restore_file.name} with pg_restore")
                 database.restore_dump(config.database_url, restore_file)
+
+            metadata = manifest.get("metadata", {})
+            extensions = metadata.get("extensions", [])
+            realtime_tables = metadata.get("realtime_tables", [])
+
+            sql_cmds = []
+            if extensions:
+                for ext in extensions:
+                    ext_name = ext.get("name")
+                    ext_schema = ext.get("schema", "extensions")
+                    if ext_name:
+                        sql_cmds.append(f'CREATE EXTENSION IF NOT EXISTS "{ext_name}" SCHEMA "{ext_schema}";')
+            
+            if realtime_tables:
+                sql_cmds.append("""
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+END $$;
+""")
+                for table in realtime_tables:
+                    if "." in table:
+                        schema, name = table.split(".", 1)
+                        full_table = f'"{schema}"."{name}"'
+                    else:
+                        full_table = f'"{table}"'
+                    
+                    sql_cmds.append(f"""
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr 
+    JOIN pg_publication p ON p.oid = pr.prpubid 
+    JOIN pg_class c ON c.oid = pr.prrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE p.pubname = 'supabase_realtime' 
+    AND n.nspname || '.' || c.relname = '{table}'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE {full_table};
+  END IF;
+END $$;
+""")
+            
+            if sql_cmds:
+                log("Restoring extensions and realtime configuration")
+                try:
+                    database.execute_sql(config.database_url, "\n".join(sql_cmds))
+                except Exception as exc:
+                    log(f"[WARNING] Failed to restore extensions/realtime settings: {exc}")
+
         return {
             "type": manifest["backup_type"],
             "commit": selected_commit[:7],

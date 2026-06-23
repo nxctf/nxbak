@@ -50,12 +50,21 @@ def create_backup(repo_root: Path, config: Config, *, snapshot_type: str, progre
             if config.backup.auth_tables:
                 backup_files.append(auth_plain)
 
+        log("Fetching database metadata (extensions and realtime tables)")
+        extensions = database.get_extensions(config.database_url)
+        realtime_tables = database.get_realtime_tables(config.database_url)
+        metadata = {
+            "extensions": extensions,
+            "realtime_tables": realtime_tables,
+        }
+
         log("Writing manifest and checksum")
         manifest = create_manifest(
             backup_type=backup_type,
             encrypted=encrypted,
             backup_files=backup_files,
             created_at=created_at,
+            metadata=metadata,
         )
         manifest_path = tmp / "manifest.json"
         checksums_path = tmp / "checksums.sha256"

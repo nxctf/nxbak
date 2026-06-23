@@ -88,3 +88,76 @@ def _pg_restore(database_url: str, dump_gz: Path) -> None:
 def restore_dump(database_url: str, dump_gz: Path) -> None:
     """Restore a single gzipped custom-format dump file. Always force mode."""
     _pg_restore(database_url, dump_gz)
+
+
+def run_query(database_url: str, query: str) -> list[str]:
+    """Execute a query via psql and return the results as a list of trimmed strings."""
+    require_executable("psql")
+    res = run(
+        [
+            "psql",
+            "--dbname",
+            database_url,
+            "--no-password",
+            "--tuples-only",
+            "--no-align",
+            "--command",
+            query,
+        ],
+        timeout=60,
+    )
+    return [line.strip() for line in res.stdout.splitlines() if line.strip()]
+
+
+def execute_sql(database_url: str, sql: str) -> None:
+    """Execute arbitrary SQL statements via psql."""
+    require_executable("psql")
+    run(
+        [
+            "psql",
+            "--dbname",
+            database_url,
+            "--no-password",
+            "--command",
+            sql,
+        ],
+        timeout=120,
+    )
+
+
+def get_extensions(database_url: str) -> list[dict[str, str]]:
+    """Get active extensions and their schemas, excluding standard postgres metadata."""
+    query = "SELECT extname, extnamespace::regnamespace::text FROM pg_extension WHERE extname != 'plpgsql';"
+    try:
+        lines = run_query(database_url, query)
+        extensions = []
+        for line in lines:
+            if "|" in line:
+                name, schema = line.split("|", 1)
+                extensions.append({"name": name.strip(), "schema": schema.strip()})
+            else:
+                extensions.append({"name": line.strip(), "schema": "public"})
+        return extensions
+    except Exception:
+        return []
+
+
+def get_realtime_tables(database_url: str) -> list[str]:
+    """Get list of tables that have realtime replication enabled (in 'supabase_realtime' publication)."""
+    check_query = "SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime';"
+    try:
+        exists = run_query(database_url, check_query)
+        if not exists:
+            return []
+        
+        query = (
+            "SELECT n.nspname || '.' || c.relname "
+            "FROM pg_publication_rel pr "
+            "JOIN pg_publication p ON p.oid = pr.prpubid "
+            "JOIN pg_class c ON c.oid = pr.prrelid "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE p.pubname = 'supabase_realtime';"
+        )
+        return run_query(database_url, query)
+    except Exception:
+        return []

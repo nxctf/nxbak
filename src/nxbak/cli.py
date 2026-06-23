@@ -145,7 +145,7 @@ def status():
     table.add_row("Monthly branch", config.branches.monthly)
     table.add_row(config.source.database_url_env, "set" if is_env_set(config.source.database_url_env) else "missing")
     table.add_row(config.backup.encryption_key_env, "set" if is_env_set(config.backup.encryption_key_env) else "missing")
-    for exe in ("git", "pg_dump", "pg_restore"):
+    for exe in ("git", "pg_dump", "pg_restore", "psql"):
         try:
             require_executable(exe)
             value = "available"
@@ -172,7 +172,7 @@ def doctor(remote_check: bool = typer.Option(False, "--remote-check", help="Also
             checks.append((f"git fetch {config.remote}", True))
     except Exception as exc:
         handle_error(exc)
-    for exe in ("git", "pg_dump", "pg_restore"):
+    for exe in ("git", "pg_dump", "pg_restore", "psql"):
         try:
             require_executable(exe)
             checks.append((exe, True))

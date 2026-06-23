@@ -19,8 +19,8 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def create_manifest(*, backup_type: str, encrypted: bool, backup_files: list[Path], created_at: str | None = None) -> dict:
-    return {
+def create_manifest(*, backup_type: str, encrypted: bool, backup_files: list[Path], created_at: str | None = None, metadata: dict | None = None) -> dict:
+    manifest_data = {
         "version": 1,
         "tool": "nxbak",
         "backup_type": backup_type,
@@ -37,6 +37,9 @@ def create_manifest(*, backup_type: str, encrypted: bool, backup_files: list[Pat
             for backup_file in backup_files
         ],
     }
+    if metadata:
+        manifest_data["metadata"] = metadata
+    return manifest_data
 
 
 def write_manifest(path: Path, manifest: dict) -> None:
