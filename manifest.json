@@ -2,20 +2,44 @@
   "version": 1,
   "tool": "nxbak",
   "backup_type": "daily",
-  "created_at": "2026-06-23T06:05:12Z",
+  "created_at": "2026-06-24T06:04:50Z",
   "source_type": "supabase",
   "compression": "gzip",
   "encrypted": true,
   "files": [
     {
       "name": "database.dump.gz.enc",
-      "sha256": "2510290dbbdae2db823f0f97afaf763a15d5f732b2ee5caa3245c2d909a3aaba",
-      "size": 99874
+      "sha256": "f066f826c36b871841880e62245e312d7c62adba350505187222ddd2adf60ecd",
+      "size": 102754
     },
     {
       "name": "auth.dump.gz.enc",
-      "sha256": "113cc73cf6594d1e9a1c10953492dd07c03f2c63206c5ba64dda396e72aff8c1",
-      "size": 77902
+      "sha256": "f4c7eb9b2288e0b11d94803b7158ef653d862f97782dd293761f55ec7bef8375",
+      "size": 80930
     }
-  ]
+  ],
+  "metadata": {
+    "extensions": [
+      {
+        "name": "pg_stat_statements",
+        "schema": "extensions"
+      },
+      {
+        "name": "pgcrypto",
+        "schema": "extensions"
+      },
+      {
+        "name": "supabase_vault",
+        "schema": "vault"
+      },
+      {
+        "name": "uuid-ossp",
+        "schema": "extensions"
+      }
+    ],
+    "realtime_tables": [
+      "public.notifications",
+      "public.solves"
+    ]
+  }
 }
