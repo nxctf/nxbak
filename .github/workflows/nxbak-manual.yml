@@ -1,0 +1,76 @@
+name: NXBAK Manual Snapshot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor \
+            -o /etc/apt/trusted.gpg.d/postgresql.gpg
+
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+          test -x /usr/lib/postgresql/17/bin/pg_dump
+          test -x /usr/lib/postgresql/17/bin/pg_restore
+
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Verify PostgreSQL client
+        run: |
+          echo "pg_dump path:"
+          command -v pg_dump
+
+          echo "pg_dump version:"
+          pg_dump --version
+
+          echo "pg_restore version:"
+          pg_restore --version
+
+          PG_MAJOR="$(pg_dump --version | awk '{print $3}' | cut -d. -f1)"
+
+          if [ "$PG_MAJOR" != "17" ]; then
+            echo "::error::Expected pg_dump 17, but found version $PG_MAJOR"
+            exit 1
+          fi
+
+      - name: Install NXBAK
+        run: pip install .
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "nxbot"
+          git config user.email "nxbot@users.noreply.github.com"
+
+      - name: Run doctor
+        env:
+          NXBAK_SUPABASE_DB_URL: ${{ secrets.NXBAK_SUPABASE_DB_URL }}
+          NXBAK_ENCRYPTION_KEY: ${{ secrets.NXBAK_ENCRYPTION_KEY }}
+        run: nxbak doctor
+
+      - name: Create manual snapshot
+        env:
+          NXBAK_SUPABASE_DB_URL: ${{ secrets.NXBAK_SUPABASE_DB_URL }}
+          NXBAK_ENCRYPTION_KEY: ${{ secrets.NXBAK_ENCRYPTION_KEY }}
+        run: nxbak backup
