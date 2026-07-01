@@ -2,19 +2,19 @@
   "version": 1,
   "tool": "nxbak",
   "backup_type": "daily",
-  "created_at": "2026-06-30T06:09:28Z",
+  "created_at": "2026-07-01T06:24:14Z",
   "source_type": "supabase",
   "compression": "gzip",
   "encrypted": true,
   "files": [
     {
       "name": "database.dump.gz.enc",
-      "sha256": "18848d7a50fe236432d39e59347a39294917d2ec35e3b1e13c7fd3d423153412",
+      "sha256": "9424ed6933abc1a395fb01f7844cbde03449b9ebbea63fdb5aae5f6ac01bc64c",
       "size": 115982
     },
     {
       "name": "auth.dump.gz.enc",
-      "sha256": "56648dd6b12b5a70cf47a54c684a52bdd0d3f0a551e7e5104d5e8f000c7ea2b5",
+      "sha256": "6251c2247abdde5f0d25464d939c7e1d1bf92c7584044bc7915d6db43769c069",
       "size": 88078
     }
   ],
