@@ -2,20 +2,20 @@
   "version": 1,
   "tool": "nxbak",
   "backup_type": "daily",
-  "created_at": "2026-07-18T04:47:21Z",
+  "created_at": "2026-07-19T05:19:58Z",
   "source_type": "supabase",
   "compression": "gzip",
   "encrypted": true,
   "files": [
     {
       "name": "database.dump.gz.enc",
-      "sha256": "f3ad522aca285ba67c9e70c245e7ba97e890459b02ddf5b5c547f41b22f1552d",
-      "size": 148538
+      "sha256": "63d5b13719011cc0d3137b1707371606cc987376ed8fdccb27f7c99162da54be",
+      "size": 155554
     },
     {
       "name": "auth.dump.gz.enc",
-      "sha256": "591d45ee5528b0998b94ff2b4c1325bd31a06f28d50760f9926ab4ed95b65706",
-      "size": 136954
+      "sha256": "4fa3e0a50b174b189356aff1e54b74d86996f9b6526322d02d4ca9e047be453f",
+      "size": 137402
     }
   ],
   "metadata": {
@@ -43,7 +43,8 @@
     ],
     "realtime_tables": [
       "public.notifications",
-      "public.solves"
+      "public.solves",
+      "public.public_chat_messages"
     ]
   }
 }
