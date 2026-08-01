@@ -2,24 +2,28 @@
   "version": 1,
   "tool": "nxbak",
   "backup_type": "monthly",
-  "created_at": "2026-07-01T07:01:23Z",
+  "created_at": "2026-08-01T05:44:18Z",
   "source_type": "supabase",
   "compression": "gzip",
   "encrypted": true,
   "files": [
     {
       "name": "database.dump.gz.enc",
-      "sha256": "63705d763c209b15dcdf097410e6fe1312bac4f0d9d9ed06fb8594ec266f3e44",
-      "size": 115982
+      "sha256": "7d20d692f5a0ae76a8ae09229e32f21b4feef3a4d96096dc57214f6017a27a52",
+      "size": 159246
     },
     {
       "name": "auth.dump.gz.enc",
-      "sha256": "a0a85961494428a04b2279ec59822dabe1efe1d96b61c3c0d9f2bd3d1c0d7200",
-      "size": 88078
+      "sha256": "3e7916eb9082009de3a5731df5380eeaa719907a7146c88f6f941e1dc11149dc",
+      "size": 138274
     }
   ],
   "metadata": {
     "extensions": [
+      {
+        "name": "pg_cron",
+        "schema": "pg_catalog"
+      },
       {
         "name": "pg_stat_statements",
         "schema": "extensions"
@@ -39,7 +43,8 @@
     ],
     "realtime_tables": [
       "public.notifications",
-      "public.solves"
+      "public.solves",
+      "public.public_chat_messages"
     ]
   }
 }
